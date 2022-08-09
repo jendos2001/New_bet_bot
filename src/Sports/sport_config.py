@@ -34,9 +34,5 @@ tennis_tournaments = {
         'Tokyo': 'xEsd9oqh',
         'Vienna': '2wOVtrSO',
         'Basel': 'Ys8VScXB'
-    },
-    'ATP250': {
-        'Lyon': 'tY0CknDc',
-        'Geneva': 'nsEPV4cT'
     }
 }
