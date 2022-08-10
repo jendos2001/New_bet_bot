@@ -1,4 +1,5 @@
 import sqlite3
+from copy import deepcopy
 import os
 import datetime
 import src.config
@@ -16,21 +17,21 @@ class TennisDataBase:
 
     def __make_db(self):
         self.__cursor.execute('CREATE TABLE IF NOT EXISTS tennis (id INTEGER PRIMARY KEY AUTOINCREMENT, '
-                              'user_id INTEGER, match_date TEXT, tournament INTEGER, round TEXT, year INTEGER, '
+                              'user_id INTEGER, match_date TEXT, tournament INTEGER, round TEXT, '
                               'match_id INTEGER, team1 TEXT, team2 TEXT, bet TEXT, score TEXT, result TEXT)')
         self.__cursor.execute('CREATE TABLE IF NOT EXISTS tournaments (id INTEGER PRIMARY KEY AUTOINCREMENT, '
-                              'tournament TEXT)')
+                              'tournament TEXT, stage_id INTEGER, year)')
 
     def add_data(self, data):
         self.__cursor.execute("SELECT id FROM tournaments WHERE tournament = ?", (data['tournament'], ))
         if not self.__cursor.fetchall():
-            self.__cursor.execute("INSERT INTO tournaments (tournament)"
-                                  "VALUES (?)", (data['tournament'], ))
-        self.__cursor.execute("INSERT INTO tennis (user_id, match_date, tournament, round, year, match_id, team1, "
+            self.__cursor.execute("INSERT INTO tournaments (tournament, stage_id, year)"
+                                  "VALUES (?, ?, ?)", (data['tournament'], data['tournament_id'], data['year']))
+        self.__cursor.execute("INSERT INTO tennis (user_id, match_date, tournament, round, match_id, team1, "
                               "team2, bet, result)"
                               "VALUES "
-                              "(?, ?, (SELECT id FROM tournaments WHERE tournament = ?), ?, ?, ?, ?, ?, ?, ?)",
-                              (data['user_id'], data['match_date'], data['tournament'], data['round'], data['year'],
+                              "(?, ?, (SELECT id FROM tournaments WHERE tournament = ?), ?, ?, ?, ?, ?, ?)",
+                              (data['user_id'], data['match_date'], data['tournament'], data['round'],
                                data['match_id'], data['team1'], data['team2'], data['bet'], '*'))
         self.__database.commit()
 
@@ -76,31 +77,49 @@ class TennisDataBase:
 
     def get_years(self):
         self.__cursor.execute(f"SELECT year "
-                              f"FROM tennis "
+                              f"FROM tournaments "
                               f"GROUP BY 1")
         return self.__cursor.fetchall()
 
     def get_tournaments_by_year(self, year):
         self.__cursor.execute(f"SELECT tournaments.tournament "
                               f"FROM tennis INNER JOIN tournaments ON tournaments.id = tennis.tournament "
-                              f" WHERE tennis.year = ?"
+                              f" WHERE tournaments.year = ?"
                               f"GROUP BY 1", (year, ))
         return self.__cursor.fetchall()
 
     def get_stats(self, stats_info):
         self.__cursor.execute(f"SELECT COUNT(*) "
                               f"FROM tennis INNER JOIN tournaments ON tournaments.id = tennis.tournament "
-                              f"WHERE tennis.year = ? AND tournaments.tournament = ? AND tennis.result = ?"
+                              f"WHERE tournaments.year = ? AND tournaments.tournament = ? AND tennis.result = ?"
                               f"UNION ALL "
                               f"SELECT COUNT(*) "
                               f"FROM tennis INNER JOIN tournaments ON tournaments.id = tennis.tournament "
-                              f"WHERE tennis.year = ? AND tournaments.tournament = ? AND tennis.result = ?",
+                              f"WHERE tournaments.year = ? AND tournaments.tournament = ? AND tennis.result = ?",
                               (stats_info['year'], stats_info['tournament'], '+',
                                stats_info['year'], stats_info['tournament'], '-'))
         return self.__cursor.fetchall()
 
-    def tmp(self):
-        self.__cursor.execute(f"UPDATE tennis "
-                              f"SET result = ? ",
-                              ('+', ))
-        self.__database.commit()
+    def set_autocheck(self, data, user_id):
+        self.__cursor.execute(f"SELECT bet "
+                              f"FROM tennis "
+                              f"WHERE match_id = ? AND user_id = ?"
+                              f"GROUP BY 1", (data['match_id'], user_id))
+        tmp_winner = deepcopy(self.__cursor.fetchall())
+        if len(tmp_winner) > 0:
+            if tmp_winner[0][0] != data['winner']:
+                result = '-'
+            else:
+                result = '+'
+            self.__cursor.execute(f"UPDATE tennis "
+                                  f"SET result = ?, score = ? "
+                                  f"WHERE match_id = ? AND user_id = ?",
+                                  (result, data['winner'], data['match_id'], user_id))
+            self.__database.commit()
+
+        self.__cursor.execute(f"SELECT team1, team2, bet, score, result "
+                              f"FROM tennis "
+                              f" WHERE tennis.match_id = ? AND user_id = ?"
+                              f"GROUP BY 1", (data['match_id'], user_id))
+        return self.__cursor.fetchall()
+
