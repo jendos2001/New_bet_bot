@@ -7,13 +7,13 @@ from DB.tennisDB import TennisDataBase
 
 
 class MainClass:
-    match_info = {}
-    check_info = {}
-    last_tennis_date = datetime.date.today()
-    tennis_data = Sports.Tennis.Tennis()
     tennis_DB = None
 
     def __init__(self):
+        self.match_info = {}
+        self.check_info = {}
+        self.stats_info = {}
+        self.tennis_data = Sports.Tennis.Tennis()
         self.updater = Updater(token=config.token, use_context=True)
 
     @staticmethod
@@ -67,6 +67,19 @@ class MainClass:
         elif data == 'back_check':
             self.check_info.clear()
             self.check(update, context)
+        elif data == 'back_stats':
+            self.stats_info.clear()
+            self.stats(update, context)
+        elif data == 'basketball_stats':
+            self.basketball_stats(update, context)
+        elif data == 'tennis_stats':
+            self.tennis_stats(update, context)
+        elif data.split(' - ')[0].isnumeric() and data.split(' - ')[1] == 'tennis_stats':
+            self.tennis_tournaments(update, context)
+        elif len(data.split(' - ')) == 2 and data.split(' - ')[1] == 'tennis_stats':
+            self.get_stats(update, context)
+        elif data == 'football_stats':
+            self.football_stats(update, context)
         elif data in self.tennis_data.get_matches(update.effective_chat.id).keys():
             self.tennis_matches(update, context)
         elif data in self.tennis_data.get_matches(update.effective_chat.id)[self.match_info['tournament']].keys():
@@ -225,10 +238,70 @@ class MainClass:
         context.bot.send_message(chat_id=update.effective_chat.id, text='football')
 
     @staticmethod
+    def stats(update, context):
+        buttons = [[InlineKeyboardButton(text='Баскетбол', callback_data='basketball_stats'),
+                    InlineKeyboardButton(text='Теннис', callback_data='tennis_stats'),
+                    InlineKeyboardButton(text='Футбол', callback_data='football_stats')]]
+        menu = InlineKeyboardMarkup(buttons)
+        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери вид спорта для получения статистики',
+                                 reply_markup=menu)
+
+    def tennis_stats(self, update, context):
+        self.stats_info['sport'] = 'tennis'
+        db = TennisDataBase(config.tennis_DB)
+        buttons = []
+        for elem in db.get_years():
+            text = str(elem[0])
+            data = f"{elem[0]} - tennis_stats"
+            buttons.append([InlineKeyboardButton(text=text, callback_data=data)])
+        buttons.append([InlineKeyboardButton(text='Вернуться к видам спортам со статистикой',
+                                             callback_data='back_stats')])
+        years = InlineKeyboardMarkup(buttons)
+        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери год',
+                                 reply_markup=years)
+
+    def tennis_tournaments(self, update, context):
+        self.stats_info['year'] = int(update.callback_query.data.split(' - ')[0])
+        db = TennisDataBase(config.tennis_DB)
+        buttons = []
+        for elem in db.get_tournaments_by_year(self.stats_info['year']):
+            text = str(elem[0])
+            data = f"{elem[0]} - tennis_stats"
+            buttons.append([InlineKeyboardButton(text=text, callback_data=data)])
+        buttons.append([InlineKeyboardButton(text='Вернуться к видам спортам со статистикой',
+                                             callback_data='back_stats')])
+        years = InlineKeyboardMarkup(buttons)
+        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери год',
+                                 reply_markup=years)
+
+    def get_stats(self, update, context):
+        self.stats_info['tournament'] = update.callback_query.data.split(' - ')[0]
+        db = TennisDataBase(config.tennis_DB)
+        buttons = []
+        results = db.get_stats(self.stats_info)
+        print(results)
+        plus = u'\U00002705'
+        minus = u'\U0000274C'
+        s = f"{self.stats_info['tournament']} - {self.stats_info['year']}\n{plus}{results[0][0]}" \
+            f"\n{minus}{results[1][0]}"
+        buttons.append([InlineKeyboardButton(text='Вернуться к видам спортам со статистикой',
+                                             callback_data='back_stats')])
+        stats = InlineKeyboardMarkup(buttons)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=s,
+                                 reply_markup=stats)
+
+    @staticmethod
     def message(context):
         db = TennisDataBase(config.tennis_DB)
         for elem in db.get_users():
-            context.bot.send_message(chat_id=elem[0], text='Не пора ли подрочить, ой проставить матчи?')
+            context.bot.send_message(chat_id=elem[0], text='Не пора ли проставить матчи?')
+
+    @staticmethod
+    def tmp(context):
+        db = TennisDataBase(config.tennis_DB)
+        db.tmp()
+        for elem in db.get_users():
+            context.bot.send_message(chat_id=elem[0], text='Результаты проставлены')
 
     def initialization_bot(self):
         self.tennis_DB = TennisDataBase(config.tennis_DB)
@@ -236,6 +309,7 @@ class MainClass:
 
         jq = self.updater.job_queue
         jq.run_daily(self.message, datetime.time(9))
+        jq.run_daily(self.tmp, datetime.time(14, 33))
 
         start_handler = CommandHandler('start', self.start)
         dispatcher.add_handler(start_handler)
@@ -245,6 +319,9 @@ class MainClass:
 
         check_handler = CommandHandler('check', self.check)
         dispatcher.add_handler(check_handler)
+
+        stats_handler = CommandHandler('stats', self.stats)
+        dispatcher.add_handler(stats_handler)
 
     def start_bot(self):
         self.updater.start_polling()
