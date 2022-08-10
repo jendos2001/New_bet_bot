@@ -17,6 +17,7 @@ class Tennis:
         }
         self.__tournaments = deepcopy(src.Sports.sport_config.tennis_tournaments)
         self.__tennis_matches = {}
+        self.__check_id = {}
         self.__users = {}
         self.__make_matches(requests.request("GET", flashscore_url,
                                              headers=flashscore_headers, params=flashscore_querystring).json()['DATA'])
@@ -24,7 +25,7 @@ class Tennis:
     def __make_matches(self, tournaments):
         for item in tournaments:
             for elem in self.__tournaments.values():
-                if item['TOURNAMENT_ID'] in elem.values():
+                if item['TEMPLATE_ID'] in elem.values():
                     matches = {}
                     for event in item['EVENTS']:
                         if event['STAGE'] != 'INTERRUPTED' and event['STAGE'] != 'CANCELED':
@@ -32,6 +33,7 @@ class Tennis:
                                 {'match_id': event['EVENT_ID'], 'teams': f"{event['HOME_NAME']} - {event['AWAY_NAME']}",
                                  'round': event['ROUND']}
                     self.__tennis_matches[item['NAME_PART_2']] = matches
+                    self.__check_id[item['NAME_PART_2']] = item['TOURNAMENT_STAGE_ID']
                     self.__remaining_matches = deepcopy(self.__tennis_matches.copy())
 
     def add_user(self, user_id):
@@ -42,6 +44,9 @@ class Tennis:
 
     def get_matches(self, user_id):
         return self.__users[user_id]
+
+    def get_id(self):
+        return self.__check_id
 
     def delete_match(self, user_id, tournament, match):
         self.__users[user_id][tournament].pop(match)

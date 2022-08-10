@@ -2,6 +2,7 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 import config
 import datetime
+import requests
 import Sports.Tennis
 from DB.tennisDB import TennisDataBase
 
@@ -26,7 +27,7 @@ class MainClass:
 
     def check_bet(self, update, context):
         data = update.callback_query.data
-        if len(self.match_info) == 4 and self.match_info['kind_of_sport'] == 'tennis':
+        if len(self.match_info) == 5 and self.match_info['kind_of_sport'] == 'tennis':
             self.match_info['bet'] = data
             s = "Проверь ставку:\nТеннис: {}\nСтавка: {}".format(self.tennis_data.get_matches(
                 update.effective_chat.id)[self.match_info['tournament']][self.match_info['match']]['teams'],
@@ -130,6 +131,8 @@ class MainClass:
         else:
             data = tmp_tournament
         self.match_info['tournament'] = data
+        self.match_info['tournament_id'] = self.tennis_data.get_id()[data]
+        print(self.match_info['tournament_id'])
         buttons = []
         for key, value in self.tennis_data.get_matches(update.effective_chat.id)[data].items():
             text = f"{value['teams']} - {value['round']}"
@@ -161,7 +164,7 @@ class MainClass:
                     self.match_info['tournament']][self.match_info['match']]['teams'].split(' - ')[0],
                 'team2': self.tennis_data.get_matches(update.effective_chat.id)[
                     self.match_info['tournament']][self.match_info['match']]['teams'].split(' - ')[1],
-                'bet': self.match_info['bet']}
+                'bet': self.match_info['bet'], 'tournament_id': self.match_info['tournament_id']}
         self.tennis_data.delete_match(update.effective_chat.id, self.match_info['tournament'], self.match_info['match'])
         self.tennis_DB = TennisDataBase(config.tennis_DB)
         self.tennis_DB.add_data(data)
@@ -296,12 +299,29 @@ class MainClass:
         for elem in db.get_users():
             context.bot.send_message(chat_id=elem[0], text='Не пора ли проставить матчи?')
 
-    @staticmethod
-    def tmp(context):
+    def autocheck(self, context):
         db = TennisDataBase(config.tennis_DB)
-        db.tmp()
-        for elem in db.get_users():
-            context.bot.send_message(chat_id=elem[0], text='Результаты проставлены')
+        for key, value in self.tennis_data.get_id().items():
+            url = "https://flashscore.p.rapidapi.com/v1/tournaments/results"
+            querystring = {"locale": "en_GB", "tournament_stage_id": value, "page": "1"}
+            headers = {
+                "X-RapidAPI-Key": "97e3e90f2dmsh490b0ed8c6df919p1c5460jsn31ae902c52e8",
+                "X-RapidAPI-Host": "flashscore.p.rapidapi.com"
+            }
+            response = requests.request("GET", url, headers=headers, params=querystring).json()['DATA'][0]['EVENTS']
+            for user_id in db.get_users():
+                for elem in response:
+                    data = {'match_id': elem['EVENT_ID']}
+                    if elem['WINNER'] == 1:
+                        data['winner'] = elem['HOME_NAME']
+                    else:
+                        data['winner'] = elem['AWAY_NAME']
+                    tmp = db.set_autocheck(data, user_id[0])
+                    if len(tmp) > 0:
+                        s = f"Результат проставлен\nМатч: {tmp[0][0]} - {tmp[0][1]}\nТвоя ставка: {tmp[0][2]}\n" \
+                            f"Победитель: {tmp[0][3]}\nРезультат: {tmp[0][4]}"
+                        context.bot.send_message(chat_id=user_id[0], text=s)
+                context.bot.send_message(chat_id=user_id[0], text='Результаты проставлены')
 
     def initialization_bot(self):
         self.tennis_DB = TennisDataBase(config.tennis_DB)
@@ -309,7 +329,7 @@ class MainClass:
 
         jq = self.updater.job_queue
         jq.run_daily(self.message, datetime.time(9))
-        jq.run_daily(self.tmp, datetime.time(14, 33))
+        jq.run_daily(self.autocheck, datetime.time(19, 45, 40))
 
         start_handler = CommandHandler('start', self.start)
         dispatcher.add_handler(start_handler)
