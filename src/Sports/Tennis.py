@@ -15,8 +15,11 @@ class Tennis(Sport):
                     for event in item['EVENTS']:
                         if event['STAGE'] != 'INTERRUPTED' and event['STAGE'] != 'CANCELED':
                             matches[event['SHORTNAME_AWAY'] + ' - ' + event['SHORTNAME_HOME']] = \
-                                {'match_id': event['EVENT_ID'], 'teams': f"{event['HOME_NAME']} - {event['AWAY_NAME']}",
-                                 'round': event['ROUND']}
+                                {'match_id': event['EVENT_ID'],
+                                 'teams': f"{event['HOME_NAME']} - {event['AWAY_NAME']}"}
+                            if 'ROUND' in event.keys():
+                                matches[event['SHORTNAME_AWAY'] + ' - ' + event['SHORTNAME_HOME']]['round'] \
+                                    = event['ROUND']
                     self._tennis_matches[item['NAME_PART_2']] = matches
                     self._check_id[item['NAME_PART_2']] = item['TOURNAMENT_STAGE_ID']
                     self.__remaining_matches = deepcopy(self._tennis_matches.copy())
