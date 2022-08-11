@@ -3,8 +3,8 @@ from src.DB.sportDB import SportDataBase
 
 class BasketballDataBase(SportDataBase):
 
-    def __init__(self):
-        pass
+    def __init__(self, database_path):
+        super().__init__(database_path)
 
     def make_db(self):
         pass
