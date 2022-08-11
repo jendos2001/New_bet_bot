@@ -1,52 +1,42 @@
-from abc import ABC, abstractmethod
+import sqlite3
 
 
-class SportDataBase(ABC):
+class SportDataBase:
 
-    @abstractmethod
-    def __init__(self):
+    def __init__(self, database_path):
+        self._database = sqlite3.connect(database_path)
+        self._cursor = self._database.cursor()
+        self._make_db()
+
+    def _make_db(self):
         pass
 
-    @abstractmethod
-    def make_db(self):
-        pass
-
-    @abstractmethod
     def add_data(self, data):
         pass
 
-    @abstractmethod
     def get_tournaments(self, date, user_id):
         pass
 
-    @abstractmethod
     def get_matches(self, date, user_id, tournament):
         pass
 
-    @abstractmethod
     def get_match(self, date, user_id, team1, team2):
         pass
 
-    @abstractmethod
     def set_result(self, check_info):
         pass
 
-    @abstractmethod
     def get_users(self):
         pass
 
-    @abstractmethod
     def get_years(self):
         pass
 
-    @abstractmethod
     def get_tournaments_by_year(self, year):
         pass
 
-    @abstractmethod
     def get_stats(self, stats_info):
         pass
 
-    @abstractmethod
     def set_autocheck(self, data, user_id):
         pass
