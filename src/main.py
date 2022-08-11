@@ -40,7 +40,6 @@ class MainClass:
             context.bot.send_message(chat_id=update.effective_chat.id, text=s, reply_markup=tennis_confirm)
 
     def answers(self, update, context):
-        print(self.match_info)
         self.check_bet(update, context)
         data = update.callback_query.data
         if data == 'basketball':
@@ -98,14 +97,10 @@ class MainClass:
     def tennis(self, update, context):
         self.match_info['kind_of_sport'] = 'tennis'
         self.match_info['user'] = update.effective_chat.id
-        print(self.tennis_data.get_date())
         if (datetime.datetime.now() - datetime.timedelta(hours=8)).date() != self.tennis_data.get_date():
-            print(1)
             self.tennis_data = Sports.Tennis.Tennis()
         if update.effective_chat.id not in self.tennis_data.get_users():
-            print(2)
             self.tennis_data.add_user(update.effective_chat.id)
-        print(self.tennis_data.get_date())
         buttons = []
         for key in self.tennis_data.get_matches(update.effective_chat.id).keys():
             buttons.append([InlineKeyboardButton(text=key, callback_data=key)])
@@ -121,7 +116,6 @@ class MainClass:
             data = tmp_tournament
         self.match_info['tournament'] = data
         self.match_info['tournament_id'] = self.tennis_data.get_id()[data]
-        print(self.match_info['tournament_id'])
         buttons = []
         for key, value in self.tennis_data.get_matches(update.effective_chat.id)[data].items():
             text = f"{value['teams']} - {value['round']}"
@@ -206,7 +200,6 @@ class MainClass:
         db = TennisDataBase(config.tennis_DB)
         buttons = []
         results = db.get_stats(self.stats_info)
-        print(results)
         plus = u'\U00002705'
         minus = u'\U0000274C'
         s = f"{self.stats_info['tournament']} - {self.stats_info['year']}\n{plus}{results[0][0]}" \
