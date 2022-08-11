@@ -51,18 +51,6 @@ class MainClass:
             self.football(update, context)
         elif data == 'basketball_check':
             self.basketball_check(update, context)
-        elif data == 'tennis_check':
-            self.tennis_check(update, context)
-        elif data == 'back_tournament_check':
-            self.check_info.clear()
-            self.check_info['sport'] = 'tennis'
-            self.tennis_check(update, context)
-        elif len(data.split(' - ')) == 2 and data.split(' - ')[1] == 'check':
-            self.tournament_check(update, context)
-        elif len(data.split(' - ')) == 3 and self.check_info['sport'] == 'tennis':
-            self.check_tennis_match(update, context)
-        elif data == '+' or data == '-':
-            self.set_tennis_bet(update, context)
         elif data == 'football_check':
             self.football_check(update, context)
         elif data == 'back_check':
@@ -94,13 +82,13 @@ class MainClass:
             self.match_info['user'] = update.effective_chat.id
             self.tennis(update, context)
         elif data == 'back_tennis_matches':
-            tmp_tornament = self.match_info['tournament']
+            tmp_tournament = self.match_info['tournament']
             tmp_sport = self.match_info['kind_of_sport']
             self.match_info.clear()
-            self.match_info['tournament'] = tmp_tornament
+            self.match_info['tournament'] = tmp_tournament
             self.match_info['kind_of_sport'] = tmp_sport
             self.match_info['user'] = update.effective_chat.id
-            self.tennis_matches(update, context, tmp_tornament)
+            self.tennis_matches(update, context, tmp_tournament)
         elif data == 'tennis_add_match':
             self.tennis_add_match(update, context)
 
@@ -123,7 +111,8 @@ class MainClass:
             buttons.append([InlineKeyboardButton(text=key, callback_data=key)])
         buttons.append([InlineKeyboardButton(text='Вернуться к видам спорта', callback_data='back')])
         tennis_tournaments = InlineKeyboardMarkup(buttons)
-        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери турнир', reply_markup=tennis_tournaments)
+        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери турнир',
+                                 reply_markup=tennis_tournaments)
 
     def tennis_matches(self, update, context, tmp_tournament=None):
         if tmp_tournament is None:
@@ -171,71 +160,6 @@ class MainClass:
         buttons = [[InlineKeyboardButton(text='Продолжить', callback_data='back_tennis_matches')]]
         continue_add = InlineKeyboardMarkup(buttons)
         context.bot.send_message(chat_id=update.effective_chat.id, text='Матч добавлен', reply_markup=continue_add)
-
-    @staticmethod
-    def check(update, context):
-        buttons = [[InlineKeyboardButton(text='Баскетбол', callback_data='basketball_check'),
-                    InlineKeyboardButton(text='Теннис', callback_data='tennis_check'),
-                    InlineKeyboardButton(text='Футбол', callback_data='football_check')]]
-        menu = InlineKeyboardMarkup(buttons)
-        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери вид спорта для проверки',
-                                 reply_markup=menu)
-
-    def tennis_check(self, update, context):
-        self.check_info['sport'] = 'tennis'
-        self.tennis_DB = TennisDataBase(config.tennis_DB)
-        date = (datetime.datetime.now() - datetime.timedelta(days=1)).date()
-        print(date)
-        self.check_info['date'] = date
-        buttons = []
-        for elem in self.tennis_DB.tournaments(date, update.effective_chat.id):
-            text = f"{elem[0]} - check"
-            buttons.append([InlineKeyboardButton(text=elem[0], callback_data=text)])
-        buttons.append([InlineKeyboardButton(text='Вернуться в начало проверки', callback_data='back_check')])
-        tournaments = InlineKeyboardMarkup(buttons)
-        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери турнир для проверки',
-                                 reply_markup=tournaments)
-
-    def tournament_check(self, update, context):
-        data = update.callback_query.data
-        self.check_info['tournament'] = data.split(' - ')[0]
-        db = TennisDataBase(config.tennis_DB)
-        date = (datetime.datetime.now() - datetime.timedelta(days=1)).date()
-        buttons = []
-        for elem in self.tennis_DB.matches(date, update.effective_chat.id, data.split(' - ')[0]):
-            text = f"{elem[0]} - {elem[1]}"
-            data = f"{elem[0]} - {elem[1]} - check"
-            buttons.append([InlineKeyboardButton(text=text, callback_data=data)])
-        buttons.append([InlineKeyboardButton(text='Вернуться к турнирам для проверки',
-                                             callback_data='back_tournament_check')])
-        buttons.append([InlineKeyboardButton(text='Вернуться в начало проверки', callback_data='back_check')])
-        matches = InlineKeyboardMarkup(buttons)
-        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери матч для проверки',
-                                 reply_markup=matches)
-
-    def check_tennis_match(self, update, context):
-        data = update.callback_query.data
-        self.check_info['team1'] = data.split(' - ')[0]
-        self.check_info['team2'] = data.split(' - ')[1]
-        db = TennisDataBase(config.tennis_DB)
-        date = datetime.date.today() - datetime.timedelta(days=1)
-        buttons = [[InlineKeyboardButton(text='+', callback_data='+')],
-                   [InlineKeyboardButton(text='-', callback_data='-')]]
-        check_menu = InlineKeyboardMarkup(buttons)
-        info = db.match(date, update.effective_chat.id, self.check_info['team1'], self.check_info['team2'])
-        s = f"Матч: {data.split(' - ')[0]} - {data.split(' - ')[1]}\nСтавка: {info[0][0]}"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=s,
-                                 reply_markup=check_menu)
-
-    def set_tennis_bet(self, update, context):
-        data = update.callback_query.data
-        self.check_info['result'] = data
-        db = TennisDataBase(config.tennis_DB)
-        db.set_result(self.check_info)
-        check_continue_button = InlineKeyboardButton(text='Продолжить', callback_data='back_check')
-        check_continue = InlineKeyboardMarkup([[check_continue_button]])
-        context.bot.send_message(chat_id=update.effective_chat.id, text='Результат добален!',
-                                 reply_markup=check_continue)
 
     def football(self, update, context):
         context.bot.send_message(chat_id=update.effective_chat.id, text='football')
@@ -329,16 +253,13 @@ class MainClass:
 
         jq = self.updater.job_queue
         jq.run_daily(self.message, datetime.time(9))
-        jq.run_daily(self.autocheck, datetime.time(19, 45, 40))
+        jq.run_daily(self.autocheck, datetime.time(8, 55))
 
         start_handler = CommandHandler('start', self.start)
         dispatcher.add_handler(start_handler)
 
         answers_handler = CallbackQueryHandler(self.answers)
         dispatcher.add_handler(answers_handler)
-
-        check_handler = CommandHandler('check', self.check)
-        dispatcher.add_handler(check_handler)
 
         stats_handler = CommandHandler('stats', self.stats)
         dispatcher.add_handler(stats_handler)
@@ -351,5 +272,3 @@ class MainClass:
 bot = MainClass()
 bot.initialization_bot()
 bot.start_bot()
-
-
