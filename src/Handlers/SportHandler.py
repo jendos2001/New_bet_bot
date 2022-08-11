@@ -34,10 +34,14 @@ class SportHandler:
             else:
                 text = f"{value['teams']}"
             buttons.append([InlineKeyboardButton(text=text, callback_data=key)])
+        if len(sport_data.get_matches(update.effective_chat.id)[data].items()) == 0:
+            s = 'Все матчи этого турнира проставлены'
+        else:
+            s = 'Выбери матч'
         buttons.append([InlineKeyboardButton(text='Вернуться к турнирам', callback_data=f"{sport}")])
         buttons.append([InlineKeyboardButton(text='Вернуться к видам спорта', callback_data='back')])
         matches = InlineKeyboardMarkup(buttons)
-        context.bot.send_message(chat_id=update.effective_chat.id, text='Выбери матч', reply_markup=matches)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=s, reply_markup=matches)
         return match_info
 
     @staticmethod
