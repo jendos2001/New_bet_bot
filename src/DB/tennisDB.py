@@ -9,8 +9,10 @@ class TennisDataBase(SportDataBase):
 
     def _make_db(self):
         self._cursor.execute('CREATE TABLE IF NOT EXISTS tennis (id INTEGER PRIMARY KEY AUTOINCREMENT, '
-                             'user_id INTEGER, match_date INTEGER, tournament INTEGER, round INTEGER, '
-                             'match_id INTEGER, team1 INTEGER, team2 INTEGER, bet INTEGER, score INTEGER, '
+                             'user_id INTEGER REFERENCES users(id), match_date INTEGER REFERENCES dates(id), '
+                             'tournament INTEGER REFERENCES tournaments(id), round INTEGER REFERENCES rounds (id), '
+                             'match_id INTEGER, team1 INTEGER REFERENCES sportsman(id), '
+                             'team2 INTEGER REFERENCES sportsman(id), bet INTEGER, score INTEGER, '
                              'result TEXT)')
         self._cursor.execute('CREATE TABLE IF NOT EXISTS tournaments (id INTEGER PRIMARY KEY AUTOINCREMENT, '
                              'tournament TEXT, stage_id INTEGER, year)')
@@ -24,7 +26,8 @@ class TennisDataBase(SportDataBase):
                              'date TEXT)')
 
     def add_data(self, data):
-        self._cursor.execute("SELECT id FROM tournaments WHERE tournament = ?", (data['tournament'],))
+        self._cursor.execute("SELECT id FROM tournaments WHERE tournament = ? AND stage_id = ?",
+                             (data['tournament'], data['tournament_id']))
         if not self._cursor.fetchall():
             self._cursor.execute("INSERT INTO tournaments (tournament, stage_id, year)"
                                  "VALUES (?, ?, ?)", (data['tournament'], data['tournament_id'], data['year']))
@@ -140,8 +143,8 @@ class TennisDataBase(SportDataBase):
         return self._cursor.fetchall()
 
     def set_autocheck(self, data, user_id):
-        self._cursor.execute(f"SELECT bet "
-                             f"FROM tennis "
+        self._cursor.execute(f"SELECT sportsman.sportsmen "
+                             f"FROM tennis INNER JOIN sportsman ON tennis.bet = sportsman.id "
                              f"WHERE match_id = ? AND user_id = (SELECT id FROM users WHERE user = ?) "
                              f"AND result = ? "
                              f"GROUP BY 1", (data['match_id'], user_id, '*'))
@@ -152,15 +155,17 @@ class TennisDataBase(SportDataBase):
             else:
                 result = '+'
             self._cursor.execute(f"UPDATE tennis "
-                                 f"SET result = ?, score = ? "
-                                 f"WHERE match_id = (SELECT id FROM sportsman WHERE sportsmen = ?) "
+                                 f"SET result = ?, score = (SELECT id FROM sportsman WHERE sportsmen = ?) "
+                                 f"WHERE match_id = ? "
                                  f"AND user_id = (SELECT id FROM users WHERE user = ?)",
                                  (result, data['winner'], data['match_id'], user_id))
             self._database.commit()
 
-        self._cursor.execute(f"SELECT team1, team2, bet, score, result "
-                             f"FROM tennis INNER JOIN sportsman ON tennis.team1 = sportsman.id "
-                             f"INNER JOIN sportsman ON tennis.team2 = sportsman.id "
+        self._cursor.execute(f"SELECT s1.sportsmen, s2.sportsmen, s3.sportsmen, s4.sportsmen, result "
+                             f"FROM tennis INNER JOIN sportsman AS s1 ON tennis.team1 = s1.id "
+                             f"INNER JOIN sportsman AS s2 ON tennis.team2 = s2.id "
+                             f"INNER JOIN sportsman AS s3 ON tennis.bet = s3.id "
+                             f"INNER JOIN sportsman AS s4 ON tennis.score = s4.id "
                              f"WHERE tennis.match_id = ? AND user_id = (SELECT id FROM users WHERE user = ?)"
                              f"GROUP BY 1", (data['match_id'], user_id))
         return self._cursor.fetchall()

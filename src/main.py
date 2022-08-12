@@ -114,7 +114,7 @@ class MainClass:
 
         jq = self.updater.job_queue
         jq.run_daily(self.message, datetime.time(9))
-        jq.run_daily(self.autocheck, datetime.time(8, 55))
+        jq.run_daily(self.autocheck, datetime.time(10, 30))
 
         start_handler = CommandHandler('start', self.start)
         dispatcher.add_handler(start_handler)
